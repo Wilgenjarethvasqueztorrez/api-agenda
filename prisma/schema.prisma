@@ -1,15 +1,87 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
-}
-
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Carrera {
+  id      Int       @id @default(autoincrement())
+  nombre  String    @db.VarChar(50)
+  codigo  Int
+  usuarios Usuario[]
+
+  @@map("carreras")
+}
+
+model Grupo {
+  id         Int         @id @default(autoincrement())
+  nombre     String      @db.VarChar(50)
+  creador_id Int
+  creador    Usuario     @relation("GrupoCreador", fields: [creador_id], references: [id])
+  invitaciones Invitacion[]
+  miembros   Miembro[]
+
+  @@map("grupos")
+}
+
+model Invitacion {
+  id         Int       @id @default(autoincrement())
+  fecha      DateTime  @db.Date
+  sender_id  Int
+  receiver   String    @db.VarChar(50)
+  estado     EstadoInvitacion
+  grupo_id   Int
+
+  sender     Usuario   @relation("InvitacionesUsuario", fields: [sender_id], references: [id])
+  grupo      Grupo     @relation(fields: [grupo_id], references: [id])
+
+  @@map("invitaciones")
+}
+
+model Miembro {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int
+  grupo_id   Int
+
+  usuario    Usuario @relation(fields: [usuario_id], references: [id])
+  grupo      Grupo   @relation(fields: [grupo_id], references: [id])
+
+  @@map("miembros")
+}
+
+model Usuario {
+  id         Int         @id @default(autoincrement())
+  nombres    String      @db.VarChar(50)
+  apellidos  String      @db.VarChar(50)
+  fecha      DateTime?   @db.Date
+  nivel      Int?        @db.TinyInt
+  correo     String      @unique @db.VarChar(50)
+  celular    String?     @db.VarChar(50)
+  telefono   String?     @db.VarChar(50)
+  rol        RolUsuario?
+  carnet     String?     @db.VarChar(50)
+  carrera_id Int?
+
+  carrera    Carrera?    @relation(fields: [carrera_id], references: [id])
+  grupos     Grupo[]     @relation("GrupoCreador")
+  invitacionesEnviadas Invitacion[] @relation("InvitacionesUsuario")
+  miembros   Miembro[]
+
+  @@map("usuarios")
+}
+
+enum EstadoInvitacion {
+  pendiente
+  aceptada
+  rechazada
+}
+
+enum RolUsuario {
+  admin
+  profesor
+  estudiante
+  oficina
 }
