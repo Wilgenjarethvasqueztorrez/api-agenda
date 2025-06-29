@@ -1,33 +1,67 @@
-//Crear la instancia de express
-import express from 'express';
-import cors from 'cors'
+// Cargar variables de entorno según el entorno
+if (process.env.NODE_ENV === 'test') {
+  import('dotenv').then(dotenv => dotenv.config({ path: '.env.test' }));
+} else {
+  import('dotenv').then(dotenv => dotenv.config());
+}
 
-// Importar las rutas
-//import productosRouter from './routes/productos/productosRoutes.js'; 
+import app from './app.js';
+import logger from './utils/logger.js';
 
-//Crear la app de express
-const app = express();
+const PORT = process.env.PORT || 3000;
 
-//Habilitar la captura de datos mediante post / formularios
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }));
-
-// Habilitar CORS para permitir las llamadas de otro servidor
-// distinto a este (localhost:3000).
-app.use(cors())
-
-//Configurar el puerto
-const port = 3000;
-
-//Usar las rutas
-//app.use('/productos', productosRouter); // PRODUCTOS
-
-//Ruta de inicio de prueba
-app.get('/', (req, res) => {
-    res.send('¡Servidor Express funcionando correctamente!');
+// Manejo de señales para cierre graceful
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM recibido, cerrando servidor...');
+  process.exit(0);
 });
 
-//Levantar el servidor en el puerto 3000
-app.listen(port, () => {
-    console.log(`Servidor corriendo en el puerto ${port}`);
+process.on('SIGINT', () => {
+  logger.info('SIGINT recibido, cerrando servidor...');
+  process.exit(0);
 });
+
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+  logger.error('Error no capturado:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, _promise) => {
+  logger.error('Promesa rechazada no manejada:', reason);
+  process.exit(1);
+});
+
+// Iniciar servidor
+const server = app.listen(PORT, () => {
+  logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
+  logger.info('📚 API Agenda - Universidad Martin Lutero');
+  logger.info(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔗 URL: http://localhost:${PORT}`);
+  logger.info(`📖 Documentación: http://localhost:${PORT}/info`);
+  logger.info(`❤️  Salud: http://localhost:${PORT}/health`);
+});
+
+// Manejo de errores del servidor
+server.on('error', (error) => {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  const bind = typeof PORT === 'string' ? `Pipe ${  PORT}` : `Port ${  PORT}`;
+
+  switch (error.code) {
+  case 'EACCES':
+    logger.error(`${bind} requiere privilegios elevados`);
+    process.exit(1);
+    break;
+  case 'EADDRINUSE':
+    logger.error(`${bind} ya está en uso`);
+    process.exit(1);
+    break;
+  default:
+    throw error;
+  }
+});
+
+export default server;
