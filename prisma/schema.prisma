@@ -20,59 +20,59 @@ model Grupo {
   id           Int          @id @default(autoincrement())
   nombre       String       @db.VarChar(50)
   creador_id   Int
-  creador      Usuario      @relation("GrupoCreador", fields: [creador_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__usuarios")
+  creador      Usuario      @relation("GrupoCreador", fields: [creador_id], references: [id])
   invitaciones Invitacion[]
   miembros     Miembro[]
 
-  @@index([creador_id], map: "FK__usuarios")
+  @@index([creador_id], map: "grupos_creador_id_fkey")
   @@map("grupos")
 }
 
 model Invitacion {
-  id        Int               @id @default(autoincrement())
-  fecha     DateTime?         @db.Date
-  sender_id Int?
-  reciver   String?           @db.VarChar(50)
-  estado    EstadoInvitacion?
-  grupo_id  Int?
-  grupo     Grupo?            @relation(fields: [grupo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_invitaciones_grupos")
-  sender    Usuario?          @relation("InvitacionesUsuario", fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_invitaciones_usuarios")
+  id        Int              @id @default(autoincrement())
+  fecha     DateTime         @db.Date
+  sender_id Int
+  receiver  String           @db.VarChar(50)
+  estado    EstadoInvitacion
+  grupo_id  Int
+  grupo     Grupo            @relation(fields: [grupo_id], references: [id])
+  sender    Usuario          @relation("InvitacionesUsuario", fields: [sender_id], references: [id])
 
-  @@index([grupo_id], map: "FK_invitaciones_grupos")
-  @@index([sender_id], map: "FK_invitaciones_usuarios")
+  @@index([grupo_id], map: "invitaciones_grupo_id_fkey")
+  @@index([sender_id], map: "invitaciones_sender_id_fkey")
   @@map("invitaciones")
 }
 
 model Miembro {
-  id         Int     @id
+  id         Int     @id @default(autoincrement())
   usuario_id Int
   grupo_id   Int
-  grupo      Grupo   @relation(fields: [grupo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__grupos")
-  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__usuarios_2")
+  grupo      Grupo   @relation(fields: [grupo_id], references: [id])
+  usuario    Usuario @relation(fields: [usuario_id], references: [id])
 
-  @@index([grupo_id], map: "FK__grupos")
-  @@index([usuario_id], map: "FK__usuarios_2")
+  @@index([grupo_id], map: "miembros_grupo_id_fkey")
+  @@index([usuario_id], map: "miembros_usuario_id_fkey")
   @@map("miembros")
 }
 
 model Usuario {
-  id                   Int           @id @default(autoincrement())
-  nombres              String        @db.VarChar(50)
-  apellidos            String        @db.VarChar(50)
-  fecha                DateTime?     @db.Date
-  nivel                Int?
-  correo               String        @db.VarChar(50)
-  celular              String?       @db.VarChar(50)
-  telefono             String?       @db.VarChar(50)
-  rol                  usuarios_rol?
-  carnet               String?       @db.VarChar(50)
+  id                   Int          @id @default(autoincrement())
+  nombres              String       @db.VarChar(50)
+  apellidos            String       @db.VarChar(50)
+  fecha                DateTime?    @db.Date
+  nivel                Int?         @db.TinyInt
+  correo               String       @unique @db.VarChar(50)
+  celular              String?      @db.VarChar(50)
+  telefono             String?      @db.VarChar(50)
+  rol                  RolUsuario?
+  carnet               String?      @db.VarChar(50)
   carrera_id           Int?
-  grupos               Grupo[]       @relation("GrupoCreador")
-  invitacionesEnviadas Invitacion[]  @relation("InvitacionesUsuario")
+  grupos               Grupo[]      @relation("GrupoCreador")
+  invitacionesEnviadas Invitacion[] @relation("InvitacionesUsuario")
   miembros             Miembro[]
-  carrera              Carrera?      @relation(fields: [carrera_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_usuarios_carreras")
+  carrera              Carrera?     @relation(fields: [carrera_id], references: [id])
 
-  @@index([carrera_id], map: "FK_usuarios_carreras")
+  @@index([carrera_id], map: "usuarios_carrera_id_fkey")
   @@map("usuarios")
 }
 
@@ -82,9 +82,9 @@ enum EstadoInvitacion {
   rechazada
 }
 
-enum usuarios_rol {
+enum RolUsuario {
   admin
-  estudiante
   profesor
+  estudiante
   oficina
 }
