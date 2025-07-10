@@ -75,7 +75,7 @@ app.get('/info', (req, res) => {
     name: 'API Agenda',
     description: 'Sistema de gestión de datos de contacto de estudiantes y docentes',
     version: '1.0.0',
-    author: 'Carlos Andres Perez Ubeda',
+    author: 'Willgen Jareth Vasquez Torrez',
     endpoints: {
       auth: '/api/auth',
       usuarios: '/api/usuarios',
