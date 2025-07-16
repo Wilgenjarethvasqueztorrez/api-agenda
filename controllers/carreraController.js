@@ -1,36 +1,17 @@
 import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
+import { carreraSchema } from '../schemas/carreraSchemas.js';
 import logger from '../utils/logger.js';
 
 const prisma = new PrismaClient();
-
-// Esquemas de validación
-const carreraSchema = Joi.object({
-  nombre: Joi.string().min(3).max(100).required(),
-  codigo: Joi.string().min(2).max(10).required(),
-  descripcion: Joi.string().max(500).optional(),
-  duracion_anos: Joi.number().integer().min(1).max(10).required(),
-  creditos_totales: Joi.number().integer().min(100).max(500).required(),
-  estado: Joi.string().valid('activa', 'inactiva').default('activa')
-});
-
-const carreraUpdateSchema = Joi.object({
-  nombre: Joi.string().min(3).max(100).optional(),
-  codigo: Joi.string().min(2).max(10).optional(),
-  descripcion: Joi.string().max(500).optional(),
-  duracion_anos: Joi.number().integer().min(1).max(10).optional(),
-  creditos_totales: Joi.number().integer().min(100).max(500).optional(),
-  estado: Joi.string().valid('activa', 'inactiva').optional()
-});
 
 const carreraController = {
   // Obtener todas las carreras con filtros y paginación
   async getAll(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        estado, 
+      const {
+        page = 1,
+        limit = 10,
+        estado,
         search,
         sortBy = 'nombre',
         sortOrder = 'asc'
@@ -103,9 +84,8 @@ const carreraController = {
           usuarios: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
-              rol: true
+              nombres: true,
+              correo: true
             }
           },
           _count: {
@@ -189,7 +169,8 @@ const carreraController = {
         });
       }
 
-      const { error, value } = carreraUpdateSchema.validate(req.body);
+      // Usa el mismo esquema para actualizar, pero permite campos opcionales
+      const { error, value } = carreraSchema.tailor('update').validate(req.body);
 
       if (error) {
         return res.status(400).json({
@@ -214,7 +195,7 @@ const carreraController = {
       // Si se está actualizando el código, verificar que no exista
       if (value.codigo && value.codigo !== existingCarrera.codigo) {
         const codigoExists = await prisma.carrera.findFirst({
-          where: { 
+          where: {
             codigo: value.codigo,
             id: { not: carreraId }
           }
@@ -305,4 +286,4 @@ const carreraController = {
   }
 };
 
-export default carreraController; 
+export default carreraController;

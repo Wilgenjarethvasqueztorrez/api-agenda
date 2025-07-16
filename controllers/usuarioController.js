@@ -1,38 +1,20 @@
 import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
-import bcrypt from 'bcryptjs';
 import logger from '../utils/logger.js';
+import usuarioSchema from '../schemas/usuariosSchemas.js';
 
 const prisma = new PrismaClient();
-
-// Esquemas de validación
-const usuarioSchema = Joi.object({
-  nombre: Joi.string().min(2).max(100).required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
-  rol: Joi.string().valid('admin', 'profesor', 'estudiante', 'oficina').default('estudiante'),
-  carrera_id: Joi.number().integer().optional()
-});
-
-const usuarioUpdateSchema = Joi.object({
-  nombre: Joi.string().min(2).max(100).optional(),
-  email: Joi.string().email().optional(),
-  password: Joi.string().min(6).optional(),
-  rol: Joi.string().valid('admin', 'profesor', 'estudiante', 'oficina').optional(),
-  carrera_id: Joi.number().integer().optional()
-});
 
 const usuarioController = {
   // Obtener todos los usuarios con filtros y paginación
   async getAll(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        rol, 
+      const {
+        page = 1,
+        limit = 10,
+        rol,
         carrera_id,
         search,
-        sortBy = 'nombre',
+        sortBy = 'nombres',
         sortOrder = 'asc'
       } = req.query;
 
@@ -44,14 +26,14 @@ const usuarioController = {
       if (carrera_id) where.carrera_id = parseInt(carrera_id);
       if (search) {
         where.OR = [
-          { nombre: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } }
+          { nombres: { contains: search, mode: 'insensitive' } },
+          { correo: { contains: search, mode: 'insensitive' } }
         ];
       }
 
       // Validar ordenamiento
-      const validSortFields = ['nombre', 'email', 'rol', 'created_at'];
-      const sortField = validSortFields.includes(sortBy) ? sortBy : 'nombre';
+      const validSortFields = ['nombres', 'correo', 'rol', 'created_at'];
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'nombres';
       const order = sortOrder === 'desc' ? 'desc' : 'asc';
 
       const [usuarios, total] = await Promise.all([
@@ -62,12 +44,10 @@ const usuarioController = {
           orderBy: { [sortField]: order },
           select: {
             id: true,
-            nombre: true,
-            email: true,
+            nombres: true,
+            correo: true,
             rol: true,
             carrera_id: true,
-            created_at: true,
-            updated_at: true,
             carrera: {
               select: {
                 id: true,
@@ -112,12 +92,10 @@ const usuarioController = {
         where: { id: usuarioId },
         select: {
           id: true,
-          nombre: true,
-          email: true,
+          nombres: true,
+          correo: true,
           rol: true,
           carrera_id: true,
-          created_at: true,
-          updated_at: true,
           carrera: {
             select: {
               id: true,
@@ -161,15 +139,15 @@ const usuarioController = {
         });
       }
 
-      // Verificar si el email ya existe
+      // Verificar si el correo ya existe
       const existingUser = await prisma.usuario.findUnique({
-        where: { email: value.email }
+        where: { correo: value.correo }
       });
 
       if (existingUser) {
         return res.status(409).json({
           success: false,
-          message: 'Ya existe un usuario con este email'
+          message: 'Ya existe un usuario con este correo'
         });
       }
 
@@ -187,22 +165,14 @@ const usuarioController = {
         }
       }
 
-      // Encriptar contraseña
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash(value.password, saltRounds);
-
       const usuario = await prisma.usuario.create({
-        data: {
-          ...value,
-          password: hashedPassword
-        },
+        data: value,
         select: {
           id: true,
-          nombre: true,
-          email: true,
+          nombres: true,
+          correo: true,
           rol: true,
           carrera_id: true,
-          created_at: true,
           carrera: {
             select: {
               id: true,
@@ -239,7 +209,7 @@ const usuarioController = {
         });
       }
 
-      const { error, value } = usuarioUpdateSchema.validate(req.body);
+      const { error, value } = usuarioSchema.validate(req.body);
 
       if (error) {
         return res.status(400).json({
@@ -261,19 +231,19 @@ const usuarioController = {
         });
       }
 
-      // Verificar si el email ya existe (si se está actualizando)
-      if (value.email && value.email !== existingUser.email) {
-        const emailExists = await prisma.usuario.findFirst({
-          where: { 
-            email: value.email,
+      // Verificar si el correo ya existe (si se está actualizando)
+      if (value.correo && value.correo !== existingUser.correo) {
+        const correoExists = await prisma.usuario.findFirst({
+          where: {
+            correo: value.correo,
             id: { not: usuarioId }
           }
         });
 
-        if (emailExists) {
+        if (correoExists) {
           return res.status(409).json({
             success: false,
-            message: 'Ya existe un usuario con este email'
+            message: 'Ya existe un usuario con este correo'
           });
         }
       }
@@ -293,25 +263,15 @@ const usuarioController = {
       }
 
       // Preparar datos para actualización
-      const updateData = { ...value };
-
-      // Encriptar contraseña si se proporciona
-      if (value.password) {
-        const saltRounds = 12;
-        updateData.password = await bcrypt.hash(value.password, saltRounds);
-      }
-
       const usuario = await prisma.usuario.update({
         where: { id: usuarioId },
-        data: updateData,
+        data: value,
         select: {
           id: true,
-          nombre: true,
-          email: true,
+          nombres: true,
+          correo: true,
           rol: true,
           carrera_id: true,
-          created_at: true,
-          updated_at: true,
           carrera: {
             select: {
               id: true,
@@ -353,9 +313,9 @@ const usuarioController = {
         where: { id: usuarioId },
         include: {
           _count: {
-            select: { 
+            select: {
               miembros: true,
-              invitaciones: true
+              invitacionesEnviadas: true
             }
           }
         }
@@ -397,4 +357,4 @@ const usuarioController = {
   }
 };
 
-export default usuarioController; 
+export default usuarioController;
