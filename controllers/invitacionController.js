@@ -521,4 +521,4 @@ const invitacionController = {
   }
 };
 
-export default invitacionController; 
+export default invitacionController;
