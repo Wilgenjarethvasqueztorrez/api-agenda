@@ -22,7 +22,7 @@ const authenticateToken = async (req, res, next) => {
     // Verificar que el usuario existe
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, rol: true, nombre: true }
+      select: { id: true, correo: true, rol: true, nombres: true }
     });
 
     if (!usuario) {
@@ -50,6 +50,9 @@ const authenticateToken = async (req, res, next) => {
         message: 'Token expirado'
       });
     }
+
+
+    console.error('Error en autenticación:', error);
 
     return res.status(500).json({
       success: false,
@@ -122,4 +125,4 @@ export {
   authenticateToken,
   authorizeRoles,
   authorizeOwnerOrAdmin
-}; 
+};
