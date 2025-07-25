@@ -1,37 +1,16 @@
 import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
+import { grupoSchema, miembroSchema } from '../schemas/grupoSchema.js';
 import logger from '../utils/logger.js';
 
 const prisma = new PrismaClient();
-
-// Esquemas de validación
-const grupoSchema = Joi.object({
-  nombre: Joi.string().min(3).max(100).required(),
-  descripcion: Joi.string().max(500).optional(),
-  estado: Joi.string().valid('activo', 'inactivo').default('activo'),
-  tipo: Joi.string().valid('academico', 'social', 'deportivo', 'cultural').optional()
-});
-
-const grupoUpdateSchema = Joi.object({
-  nombre: Joi.string().min(3).max(100).optional(),
-  descripcion: Joi.string().max(500).optional(),
-  estado: Joi.string().valid('activo', 'inactivo').optional(),
-  tipo: Joi.string().valid('academico', 'social', 'deportivo', 'cultural').optional()
-});
-
-const miembroSchema = Joi.object({
-  usuario_id: Joi.number().integer().positive().required()
-});
 
 const grupoController = {
   // Obtener todos los grupos con filtros y paginación
   async getAll(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        estado, 
-        tipo,
+      const {
+        page = 1,
+        limit = 10,
         search,
         sortBy = 'nombre',
         sortOrder = 'asc'
@@ -41,17 +20,14 @@ const grupoController = {
 
       // Construir filtros
       const where = {};
-      if (estado) where.estado = estado;
-      if (tipo) where.tipo = tipo;
       if (search) {
         where.OR = [
-          { nombre: { contains: search, mode: 'insensitive' } },
-          { descripcion: { contains: search, mode: 'insensitive' } }
+          { nombre: { contains: search, mode: 'insensitive' } }
         ];
       }
 
       // Validar ordenamiento
-      const validSortFields = ['nombre', 'tipo', 'estado', 'created_at'];
+      const validSortFields = ['nombre'];
       const sortField = validSortFields.includes(sortBy) ? sortBy : 'nombre';
       const order = sortOrder === 'desc' ? 'desc' : 'asc';
 
@@ -106,8 +82,8 @@ const grupoController = {
               usuario: {
                 select: {
                   id: true,
-                  nombre: true,
-                  email: true,
+                  nombres: true,
+                  correo: true,
                   rol: true
                 }
               }
@@ -182,7 +158,7 @@ const grupoController = {
         });
       }
 
-      const { error, value } = grupoUpdateSchema.validate(req.body);
+      const { error, value } = grupoSchema.validate(req.body);
 
       if (error) {
         return res.status(400).json({
@@ -311,13 +287,13 @@ const grupoController = {
           usuario: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
+              nombres: true,
+              correo: true,
               rol: true
             }
           }
         },
-        orderBy: { created_at: 'asc' }
+        orderBy: { nombres: 'asc' }
       });
 
       logger.info(`Miembros obtenidos del grupo ${grupo.nombre}: ${miembros.length}`);
@@ -404,8 +380,8 @@ const grupoController = {
           usuario: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
+              nombres: true,
+              correo: true,
               rol: true
             }
           }
@@ -461,7 +437,7 @@ const grupoController = {
           usuario: {
             select: {
               id: true,
-              nombre: true
+              nombres: true
             }
           }
         }
@@ -478,7 +454,7 @@ const grupoController = {
         where: { id: miembroId }
       });
 
-      logger.info(`Miembro removido del grupo ${grupo.nombre}: ${miembro.usuario.nombre}`);
+      logger.info(`Miembro removido del grupo ${grupo.nombre}: ${miembro.usuario.nombres}`);
 
       res.json({
         success: true,
@@ -495,4 +471,4 @@ const grupoController = {
   }
 };
 
-export default grupoController; 
+export default grupoController;
