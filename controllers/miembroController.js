@@ -1,14 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
 import logger from '../utils/logger.js';
+import miembroSchema from '../schemas/miembroSchema.js';
 
 const prisma = new PrismaClient();
-
-// Esquemas de validación
-const miembroSchema = Joi.object({
-  usuario_id: Joi.number().integer().required(),
-  grupo_id: Joi.number().integer().required()
-});
 
 const miembroController = {
   // Obtener todos los miembros con filtros y paginación
@@ -19,7 +13,7 @@ const miembroController = {
         limit = 10, 
         grupo_id, 
         usuario_id,
-        sortBy = 'created_at',
+        sortBy = 'fecha',
         sortOrder = 'desc'
       } = req.query;
 
@@ -31,8 +25,8 @@ const miembroController = {
       if (usuario_id) where.usuario_id = parseInt(usuario_id);
 
       // Validar ordenamiento
-      const validSortFields = ['created_at', 'usuario_id', 'grupo_id'];
-      const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
+      const validSortFields = ['usuario_id', 'grupo_id'];
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'usuario_id';
       const order = sortOrder === 'desc' ? 'desc' : 'asc';
 
       const [miembros, total] = await Promise.all([
@@ -45,8 +39,8 @@ const miembroController = {
             usuario: {
               select: {
                 id: true,
-                nombre: true,
-                email: true,
+                nombres: true,
+                correo: true,
                 rol: true
               }
             },
@@ -95,8 +89,8 @@ const miembroController = {
           usuario: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
+              nombres: true,
+              correo: true,
               rol: true
             }
           },
@@ -116,7 +110,7 @@ const miembroController = {
         });
       }
 
-      logger.info(`Miembro obtenido: ${miembro.usuario.nombre} en ${miembro.grupo.nombre} (ID: ${miembroId})`);
+      logger.info(`Miembro obtenido: ${miembro.usuario.nombres} en ${miembro.grupo.nombre} (ID: ${miembroId})`);
 
       res.json(miembro);
     } catch (error) {
@@ -190,8 +184,8 @@ const miembroController = {
           usuario: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
+              nombres: true,
+              correo: true,
               rol: true
             }
           },
@@ -204,7 +198,7 @@ const miembroController = {
         }
       });
 
-      logger.info(`Miembro creado: ${usuario.nombre} en ${grupo.nombre} (ID: ${miembro.id})`);
+      logger.info(`Miembro creado: ${usuario.nombres} en ${grupo.nombre} (ID: ${miembro.id})`);
 
       res.status(201).json(miembro);
     } catch (error) {
@@ -237,7 +231,7 @@ const miembroController = {
           usuario: {
             select: {
               id: true,
-              nombre: true
+              nombres: true
             }
           },
           grupo: {
@@ -260,7 +254,7 @@ const miembroController = {
         where: { id: miembroId }
       });
 
-      logger.info(`Miembro eliminado: ${miembro.usuario.nombre} de ${miembro.grupo.nombre} (ID: ${miembroId})`);
+      logger.info(`Miembro eliminado: ${miembro.usuario.nombres} de ${miembro.grupo.nombre} (ID: ${miembroId})`);
 
       res.json({
         success: true,

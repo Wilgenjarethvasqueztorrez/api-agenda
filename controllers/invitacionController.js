@@ -1,31 +1,20 @@
 import { PrismaClient } from '@prisma/client';
-import Joi from 'joi';
 import logger from '../utils/logger.js';
+import { invitacionSchema, invitacionUpdateSchema } from '../schemas/invitacionSchema.js';
 
 const prisma = new PrismaClient();
-
-// Esquemas de validación
-const invitacionSchema = Joi.object({
-  grupo_id: Joi.number().integer().positive().required(),
-  usuario_id: Joi.number().integer().positive().required(),
-  estado: Joi.string().valid('pendiente', 'aceptada', 'rechazada').default('pendiente')
-});
-
-const invitacionUpdateSchema = Joi.object({
-  estado: Joi.string().valid('pendiente', 'aceptada', 'rechazada').required()
-});
 
 const invitacionController = {
   // Obtener todas las invitaciones con filtros y paginación
   async getAll(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        estado, 
+      const {
+        page = 1,
+        limit = 10,
+        estado,
         grupo_id,
         usuario_id,
-        sortBy = 'created_at',
+        sortBy = 'fecha',
         sortOrder = 'desc'
       } = req.query;
 
@@ -38,8 +27,8 @@ const invitacionController = {
       if (usuario_id) where.usuario_id = parseInt(usuario_id);
 
       // Validar ordenamiento
-      const validSortFields = ['created_at', 'updated_at', 'estado'];
-      const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
+      const validSortFields = ['fecha', 'estado', 'grupo_id', 'sender_id'];
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'fecha';
       const order = sortOrder === 'asc' ? 'asc' : 'desc';
 
       const [invitaciones, total] = await Promise.all([
@@ -53,18 +42,16 @@ const invitacionController = {
               select: {
                 id: true,
                 nombre: true,
-                descripcion: true,
-                estado: true
               }
             },
-            usuario: {
-              select: {
-                id: true,
-                nombre: true,
-                email: true,
-                rol: true
-              }
-            }
+            // /*usuario: {
+            //   select: {
+            //     id: true,
+            //     nombres: true,
+            //     correo: true,
+            //     rol: true
+            //   }
+            // }*/
           }
         }),
         prisma.invitacion.count({ where })
@@ -105,16 +92,13 @@ const invitacionController = {
             select: {
               id: true,
               nombre: true,
-              descripcion: true,
-              estado: true,
-              created_at: true
             }
           },
-          usuario: {
+          sender: {
             select: {
               id: true,
-              nombre: true,
-              email: true,
+              nombres: true,
+              correo: true,
               rol: true,
               carrera: {
                 select: {
@@ -135,7 +119,7 @@ const invitacionController = {
         });
       }
 
-      logger.info(`Invitación obtenida: ${invitacion.usuario.nombre} en ${invitacion.grupo.nombre} (ID: ${invitacionId})`);
+      logger.info(`Invitación obtenida: ${invitacion.sender.nombres} en ${invitacion.grupo.nombre} (ID: ${invitacionId})`);
 
       res.json(invitacion);
     } catch (error) {
@@ -175,7 +159,7 @@ const invitacionController = {
 
       // Verificar si el usuario existe
       const usuario = await prisma.usuario.findUnique({
-        where: { id: value.usuario_id }
+        where: { id: value.sender_id }
       });
 
       if (!usuario) {
@@ -189,7 +173,7 @@ const invitacionController = {
       const existingInvitacion = await prisma.invitacion.findFirst({
         where: {
           grupo_id: value.grupo_id,
-          usuario_id: value.usuario_id
+          receiver: value.receiver
         }
       });
 
@@ -204,7 +188,7 @@ const invitacionController = {
       const existingMiembro = await prisma.miembro.findFirst({
         where: {
           grupo_id: value.grupo_id,
-          usuario_id: value.usuario_id
+          usuario_id: value.sender_id
         }
       });
 
@@ -224,17 +208,17 @@ const invitacionController = {
               nombre: true
             }
           },
-          usuario: {
+          sender: {
             select: {
               id: true,
-              nombre: true,
-              email: true
+              nombres: true,
+              correo: true
             }
           }
         }
       });
 
-      logger.info(`Invitación creada: ${invitacion.usuario.nombre} invitado a ${invitacion.grupo.nombre} (ID: ${invitacion.id})`);
+      logger.info(`Invitación creada: ${invitacion.sender.nombres} invitado a ${invitacion.grupo.nombre} (ID: ${invitacion.id})`);
 
       res.status(201).json(invitacion);
     } catch (error) {
@@ -273,17 +257,19 @@ const invitacionController = {
       // Verificar si la invitación existe
       const existingInvitacion = await prisma.invitacion.findUnique({
         where: { id: invitacionId },
-        include: {
+        select: {
+          grupo_id: true,
+          sender_id: true, // <-- agrega esto
           grupo: {
             select: {
               id: true,
               nombre: true
             }
           },
-          usuario: {
+          sender: {
             select: {
               id: true,
-              nombre: true
+              nombres: true
             }
           }
         }
@@ -297,7 +283,7 @@ const invitacionController = {
       }
 
       // Verificar permisos (solo el usuario invitado puede actualizar el estado)
-      if (existingInvitacion.usuario_id !== req.user.id && req.user.rol !== 'admin') {
+      if (existingInvitacion.sender_id !== req.user.id && req.user.rol !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para actualizar esta invitación'
@@ -310,7 +296,7 @@ const invitacionController = {
         const existingMiembro = await prisma.miembro.findFirst({
           where: {
             grupo_id: existingInvitacion.grupo_id,
-            usuario_id: existingInvitacion.usuario_id
+            usuario_id: existingInvitacion.sender_id
           }
         });
 
@@ -318,7 +304,7 @@ const invitacionController = {
           await prisma.miembro.create({
             data: {
               grupo_id: existingInvitacion.grupo_id,
-              usuario_id: existingInvitacion.usuario_id
+              usuario_id: existingInvitacion.sender_id
             }
           });
         }
@@ -334,18 +320,18 @@ const invitacionController = {
               nombre: true
             }
           },
-          usuario: {
+          sender: {
             select: {
               id: true,
-              nombre: true,
-              email: true
+              nombres: true,
+              correo: true
             }
           }
         }
       });
 
       const action = value.estado === 'aceptada' ? 'aceptada' : value.estado === 'rechazada' ? 'rechazada' : 'actualizada';
-      logger.info(`Invitación ${action}: ${existingInvitacion.usuario.nombre} en ${existingInvitacion.grupo.nombre} (ID: ${invitacionId})`);
+      logger.info(`Invitación ${action}: ${existingInvitacion.sender.nombres} en ${existingInvitacion.grupo.nombre} (ID: ${invitacionId})`);
 
       res.json(invitacion);
     } catch (error) {
@@ -381,10 +367,10 @@ const invitacionController = {
               nombre: true
             }
           },
-          usuario: {
+          sender: {
             select: {
               id: true,
-              nombre: true
+              nombres: true
             }
           }
         }
@@ -398,7 +384,7 @@ const invitacionController = {
       }
 
       // Verificar permisos (solo el usuario invitado o admin puede eliminar)
-      if (invitacion.usuario_id !== req.user.id && req.user.rol !== 'admin') {
+      if (invitacion.sender_id !== req.user.id && req.user.rol !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para eliminar esta invitación'
@@ -409,7 +395,7 @@ const invitacionController = {
         where: { id: invitacionId }
       });
 
-      logger.info(`Invitación eliminada: ${invitacion.usuario.nombre} de ${invitacion.grupo.nombre} (ID: ${invitacionId})`);
+      logger.info(`Invitación eliminada: ${invitacion.sender.nombres} de ${invitacion.grupo.nombre} (ID: ${invitacionId})`);
 
       res.json({
         success: true,
@@ -450,9 +436,9 @@ const invitacionController = {
         });
       }
 
-      const { 
-        page = 1, 
-        limit = 10, 
+      const {
+        page = 1,
+        limit = 10,
         estado,
         tipo = 'recibidas' // 'recibidas' o 'enviadas'
       } = req.query;
@@ -464,9 +450,9 @@ const invitacionController = {
       if (estado) where.estado = estado;
 
       if (tipo === 'enviadas') {
-        where.usuario_id = usuarioId;
+        where.sender_id = usuarioId;
       } else {
-        where.usuario_id = usuarioId;
+        where.sender_id = usuarioId;
       }
 
       const [invitaciones, total] = await Promise.all([
@@ -474,20 +460,19 @@ const invitacionController = {
           where,
           skip: parseInt(skip),
           take: parseInt(limit),
-          orderBy: { created_at: 'desc' },
+          orderBy: { fecha: 'desc' },
           include: {
             grupo: {
               select: {
                 id: true,
                 nombre: true,
-                estado: true
               }
             },
-            usuario: {
+            sender: {
               select: {
                 id: true,
-                nombre: true,
-                email: true,
+                nombres: true,
+                correo: true,
                 rol: true
               }
             }
@@ -498,7 +483,7 @@ const invitacionController = {
 
       const totalPages = Math.ceil(total / limit);
 
-      logger.info(`Invitaciones ${tipo} obtenidas para ${usuario.nombre}: ${invitaciones.length} de ${total}`);
+      logger.info(`Invitaciones ${tipo} obtenidas para ${usuario.nombres}: ${invitaciones.length} de ${total}`);
 
       res.json({
         success: true,

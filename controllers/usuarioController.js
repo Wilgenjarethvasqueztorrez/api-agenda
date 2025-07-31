@@ -32,7 +32,7 @@ const usuarioController = {
       }
 
       // Validar ordenamiento
-      const validSortFields = ['nombres', 'correo', 'rol', 'created_at'];
+      const validSortFields = ['nombres', 'correo', 'rol'];
       const sortField = validSortFields.includes(sortBy) ? sortBy : 'nombres';
       const order = sortOrder === 'desc' ? 'desc' : 'asc';
 
