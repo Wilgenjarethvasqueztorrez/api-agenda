@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'test') {
 import app from './app.js';
 import logger from './utils/logger.js';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Manejo de señales para cierre graceful
 process.on('SIGTERM', () => {
